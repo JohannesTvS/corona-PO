@@ -1,9 +1,14 @@
 breed [mensen mens]
-mensen-own []
+mensen-own[
+  vanRichtingVeranderd?
+
+  ziek?
+  immuun?
+  tijdZiek
+]
 
 globals [a   ;;debug variabelen omdat je niet kan console.loggen
   b
-  vanRichtingVeranderd?
   verschilVX1
   verschilVY1
 ]
@@ -16,12 +21,37 @@ to setup
   create-mensen aantalMensen[
     set color green
     setxy random-xcor random-ycor
+    set ziek? false
+    set immuun? false
+  ]
+  ask n-of aantalZiekenBegin mensen[
+    wordZiek
   ]
 end
 
 
 to go
-    beweeg
+  ask mensen with [vanRichtingVeranderd? = false][
+    if count other mensen in-radius size > 0[  ;overlapping
+      bots
+    ]
+  ]
+
+  ask mensen with[ ziek?][
+      if count other mensen in-radius size > 0[
+        besmet
+      ]
+      if tijdZiek >= ziekteDuur[
+        ifelse random 100 > kansGezondWorden[
+          die
+       ]
+        [ wordGezond
+        ]
+      ]
+  ]
+  ask mensen with [ziek?][   ;;nieuwe loop, zodat net besmette mensen allemaal op 0 beginnen
+    set tijdZiek tijdZiek + 1
+  ]
   ask mensen [
     fd 0.1
    set vanRichtingVeranderd? false
@@ -31,53 +61,68 @@ to go
 end
 
 
-to beweeg
 
+to bots
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; VAN HET BOTSSYSTEEM AFBLIJVEN!!!!!!   ;;
   ;; HET WERKT, MAAR GEEN IDEE WAAROM      ;;
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  ask mensen with [vanRichtingVeranderd? = false][
-    if count other mensen in-radius size > 0[  ;overlapping
-      let heading1 heading
-      let x1 xcor
-      set a x1
-      let y1 ycor
-      set vanRichtingVeranderd? true
-      ask one-of other mensen in-radius size [   ;;VRAAGT ZICHZELF soms
-        let heading2 heading
-        let verschilx xcor - x1
-        set b verschilx
-        let verschily ycor - y1
-        let hoek atan verschily verschilx
-        let targetx x1 + sin hoek * size
-        let targety y1 + cos hoek * size
-        let ax targetx - xcor
-        let ay targety - ycor
-        set verschilVX1 dx - ax
-        set verschilVY1 dy - ay
-        let verschilVX2 dx + ax
-        let verschilVY2 dy + ay
-        set heading atan verschilVY2 verschilVX2
-        set vanrichtingVeranderd? true
-      ]
-      set heading atan verschilVY1 verschilVX1
+  let heading1 heading
+  let x1 xcor
+  set a x1
+  let y1 ycor
+  set vanRichtingVeranderd? true
+  ask one-of other mensen in-radius size [
+    let heading2 heading
+    let verschilx xcor - x1
+    set b verschilx
+    let verschily ycor - y1
+    let hoek atan verschily verschilx
+    let targetx x1 + sin hoek * size
+    let targety y1 + cos hoek * size
+    let ax targetx - xcor
+    let ay targety - ycor
+    set verschilVX1 dx - ax
+    set verschilVY1 dy - ay
+    let verschilVX2 dx + ax
+    let verschilVY2 dy + ay
+    set heading atan verschilVY2 verschilVX2
+    set vanrichtingVeranderd? true
   ]
-  ]
-
-
+  set heading atan verschilVY1 verschilVX1
 end
 
+to wordZiek
+  set ziek? true
+  set tijdZiek -1   ;;wordt voor de volgende tick op 0 gezet in go
+  set color red
+end
+
+to wordGezond
+  set ziek? false
+  set immuun? true
+  set color blue
+end
+
+to besmet
+  if random 100 < kansBesmetting[
+  ask one-of other mensen in-radius size[
+      if not ziek?[
+        wordZiek
+      ]
+    ]
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-1058
-859
+1022
+343
 -1
 -1
-40.0
+4.0
 1
 10
 1
@@ -87,12 +132,12 @@ GRAPHICS-WINDOW
 1
 1
 1
--10
-10
--10
-10
-0
-0
+-100
+100
+-40
+40
+1
+1
 1
 ticks
 30.0
@@ -105,8 +150,8 @@ SLIDER
 aantalMensen
 aantalMensen
 0
-100
-49.0
+1000
+1000.0
 1
 1
 NIL
@@ -162,6 +207,86 @@ A
 NIL
 NIL
 1
+
+SLIDER
+20
+258
+192
+291
+aantalZiekenBegin
+aantalZiekenBegin
+0
+20
+11.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+21
+310
+193
+343
+kansBesmetting
+kansBesmetting
+0
+100
+20.0
+1
+1
+%
+HORIZONTAL
+
+SLIDER
+38
+365
+210
+398
+ziekteDuur
+ziekteDuur
+0
+1000
+376.0
+1
+1
+NIL
+HORIZONTAL
+
+PLOT
+299
+386
+768
+582
+plot 1
+ticks
+aantal
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"Aantal dood" 1.0 0 -16777216 true "" "plot aantalMensen - count mensen"
+"aantal Besmet" 1.0 0 -2674135 true "" "plot count mensen with [ziek?]"
+"aantal immuun" 1.0 0 -13345367 true "" "plot count mensen with [immuun?]"
+
+SLIDER
+27
+226
+199
+259
+kansGezondWorden
+kansGezondWorden
+0
+100
+50.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
