@@ -5,12 +5,15 @@ mensen-own[
   ziek?
   immuun?
   tijdZiek
+  tijdContact
+  contactMetZiek?
 ]
 
 globals [a   ;;debug variabelen omdat je niet kan console.loggen
   b
   verschilVX1
   verschilVY1
+  mensenDood
 ]
 
 to setup
@@ -38,13 +41,18 @@ to go
   ]
 
   ask mensen with[ ziek?][
-      if count other mensen in-radius size > 0[
-        besmet
+    if count other mensen in-radius size > 0[
+      besmet
+      ask one-of other mensen in-radius size [
+        set tijdContact ticks
+        set contactMetZiek? true
       ]
-      if tijdZiek >= ziekteDuur[
-        ifelse random 100 > kansGezondWorden[
-          die
-       ]
+    ]
+    if tijdZiek >= ziekteDuur + random (ziekteduur / 10) [ ;;omdat het virus nooit in precies dezelfde tijd iemand dood, zit er wat speling in ziekteduur
+      ifelse random 100 > kansGezondWorden[
+         set mensenDood mensenDood + 1
+         die
+      ]
         [ wordGezond
         ]
       ]
@@ -53,10 +61,21 @@ to go
     set tijdZiek tijdZiek + 1
   ]
   ask mensen [
-    fd 0.1
-   set vanRichtingVeranderd? false
+    set vanRichtingVeranderd? false
+    (ifelse
+      contactMetZiek? = true and tijdContact + incubatietijd > ticks and contactApp? = true [
+        fd 0.05
+        set color yellow
+      ]
+      tijdZiek < incubatietijd [
+        fd 0.1
+      ]
+      []
+      )
   ]
-
+  if count mensen with [ziek?] = 0 [
+    stop
+  ]
   tick
 end
 
@@ -103,11 +122,12 @@ to wordGezond
   set ziek? false
   set immuun? true
   set color blue
+  set tijdZiek 0
 end
 
 to besmet
   if random 100 < kansBesmetting[
-  ask one-of other mensen in-radius size[
+    ask one-of other mensen in-radius size[
       if not ziek?[
         wordZiek
       ]
@@ -209,25 +229,25 @@ NIL
 1
 
 SLIDER
-20
-258
-192
-291
+24
+264
+196
+297
 aantalZiekenBegin
 aantalZiekenBegin
 0
 20
-11.0
+10.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-21
-310
-193
-343
+25
+305
+197
+338
 kansBesmetting
 kansBesmetting
 0
@@ -239,10 +259,10 @@ kansBesmetting
 HORIZONTAL
 
 SLIDER
-38
-365
-210
-398
+24
+348
+196
+381
 ziekteDuur
 ziekteDuur
 0
@@ -269,9 +289,9 @@ true
 true
 "" ""
 PENS
-"Aantal dood" 1.0 0 -16777216 true "" "plot aantalMensen - count mensen"
+"aantal Dood" 1.0 0 -16777216 true "" "plot mensenDood"
 "aantal Besmet" 1.0 0 -2674135 true "" "plot count mensen with [ziek?]"
-"aantal immuun" 1.0 0 -13345367 true "" "plot count mensen with [immuun?]"
+"aantal Immuun" 1.0 0 -13345367 true "" "plot count mensen with [immuun?]"
 
 SLIDER
 27
@@ -287,6 +307,32 @@ kansGezondWorden
 1
 NIL
 HORIZONTAL
+
+SLIDER
+23
+393
+195
+426
+incubatietijd
+incubatietijd
+0
+100
+100.0
+1
+1
+NIL
+HORIZONTAL
+
+SWITCH
+23
+436
+148
+469
+contactApp?
+contactApp?
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
