@@ -6,6 +6,7 @@ mensen-own[
   immuun?
   tijdZiek
   tijdContact
+  tijdAlert
   contactMetZiek?
 ]
 
@@ -14,6 +15,9 @@ globals [a   ;;debug variabelen omdat je niet kan console.loggen
   verschilVX1
   verschilVY1
   mensenDood
+  procentDood
+  procentBesmet
+  procentImmuun
 ]
 
 to setup
@@ -34,48 +38,26 @@ end
 
 
 to go
-  ask mensen with [vanRichtingVeranderd? = false][
-    if count other mensen in-radius size > 0[  ;overlapping
-      bots
-    ]
-  ]
+
+  bots
 
   ask mensen with[ ziek?][
-    if count other mensen in-radius size > 0[
-      besmet
-      ask one-of other mensen in-radius size [
-        set tijdContact ticks
-        set contactMetZiek? true
-      ]
-    ]
-    if tijdZiek >= ziekteDuur + random (ziekteduur / 10) [ ;;omdat het virus nooit in precies dezelfde tijd iemand dood, zit er wat speling in ziekteduur
-      ifelse random 100 > kansGezondWorden[
-         set mensenDood mensenDood + 1
-         die
-      ]
-        [ wordGezond
-        ]
-      ]
+    contactProcedure
+    ziekteResultaat
+    alertAnderen
   ]
   ask mensen with [ziek?][   ;;nieuwe loop, zodat net besmette mensen allemaal op 0 beginnen
     set tijdZiek tijdZiek + 1
   ]
-  ask mensen [
-    set vanRichtingVeranderd? false
-    (ifelse
-      contactMetZiek? = true and tijdContact + incubatietijd > ticks and contactApp? = true [
-        fd 0.05
-        set color yellow
-      ]
-      tijdZiek < incubatietijd [
-        fd 0.1
-      ]
-      []
-      )
-  ]
+
+  beweeg
+
   if count mensen with [ziek?] = 0 [
     stop
   ]
+
+  statistiek
+
   tick
 end
 
@@ -86,32 +68,63 @@ to bots
   ;; VAN HET BOTSSYSTEEM AFBLIJVEN!!!!!!   ;;
   ;; HET WERKT, MAAR GEEN IDEE WAAROM      ;;
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-  let heading1 heading
-  let x1 xcor
-  set a x1
-  let y1 ycor
-  set vanRichtingVeranderd? true
-  ask one-of other mensen in-radius size [
-    let heading2 heading
-    let verschilx xcor - x1
-    set b verschilx
-    let verschily ycor - y1
-    let hoek atan verschily verschilx
-    let targetx x1 + sin hoek * size
-    let targety y1 + cos hoek * size
-    let ax targetx - xcor
-    let ay targety - ycor
-    set verschilVX1 dx - ax
-    set verschilVY1 dy - ay
-    let verschilVX2 dx + ax
-    let verschilVY2 dy + ay
-    set heading atan verschilVY2 verschilVX2
-    set vanrichtingVeranderd? true
+ask mensen with [vanRichtingVeranderd? = false][
+    if count other mensen in-radius size > 0[  ;overlapping
+      let heading1 heading
+      let x1 xcor
+      set a x1
+      let y1 ycor
+      set vanRichtingVeranderd? true
+      ask one-of other mensen in-radius size [
+        let heading2 heading
+        let verschilx xcor - x1
+        set b verschilx
+        let verschily ycor - y1
+        let hoek atan verschily verschilx
+        let targetx x1 + sin hoek * size
+        let targety y1 + cos hoek * size
+        let ax targetx - xcor
+        let ay targety - ycor
+        set verschilVX1 dx - ax
+        set verschilVY1 dy - ay
+        let verschilVX2 dx + ax
+        let verschilVY2 dy + ay
+        set heading atan verschilVY2 verschilVX2
+        set vanrichtingVeranderd? true
+      ]
+      set heading atan verschilVY1 verschilVX1
+    ]
   ]
-  set heading atan verschilVY1 verschilVX1
 end
 
+to beweeg
+   ask mensen [
+    set vanRichtingVeranderd? false
+    (ifelse
+      contactMetZiek? = true and tijdAlert + incubatietijd > ticks and contactApp? = true [
+        fd 0.05
+        set color yellow
+      ]
+      tijdZiek < incubatietijd [
+        fd 0.2
+      ]
+
+      [
+
+      ]
+      )
+  ]
+end
+
+to contactProcedure
+  if count other mensen in-radius size > 0[
+      besmet
+      ask one-of other mensen in-radius size [
+        set tijdContact ticks
+        set contactMetZiek? true
+      ]
+    ]
+end
 to wordZiek
   set ziek? true
   set tijdZiek -1   ;;wordt voor de volgende tick op 0 gezet in go
@@ -133,6 +146,30 @@ to besmet
       ]
     ]
   ]
+end
+
+to alertAnderen
+  if contactApp? [
+    if tijdZiek >= incubatietijd [
+    ]
+  ]
+end
+
+to ziekteResultaat
+   if tijdZiek >= ziekteDuur + random (ziekteduur / 10) [ ;;omdat het virus nooit in precies dezelfde tijd iemand dood, zit er wat speling in ziekteduur
+      ifelse random 100 > kansGezondWorden[
+         set mensenDood mensenDood + 1
+         die
+      ]
+        [ wordGezond
+        ]
+      ]
+end
+
+to statistiek
+  set procentDood (mensenDood / aantalMensen) * 100
+  set procentBesmet (count mensen with [ziek?] / aantalMensen) * 100
+  set procentImmuun (count mensen with [immuun?]/ aantalMensen) * 100
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -289,9 +326,9 @@ true
 true
 "" ""
 PENS
-"aantal Dood" 1.0 0 -16777216 true "" "plot mensenDood"
-"aantal Besmet" 1.0 0 -2674135 true "" "plot count mensen with [ziek?]"
-"aantal Immuun" 1.0 0 -13345367 true "" "plot count mensen with [immuun?]"
+"%Dood" 1.0 0 -16777216 true "" "plot procentDood"
+"%Besmet" 1.0 0 -2674135 true "" "plot procentBesmet"
+"%Immuun" 1.0 0 -13345367 true "" "plot procentImmuun"
 
 SLIDER
 27
