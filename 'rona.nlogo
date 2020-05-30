@@ -1,44 +1,51 @@
 breed [mensen mens]
+
 mensen-own[
   vanRichtingVeranderd?
-
   ziek?
   immuun?
   tijdZiek
-  tijdContact
+  momentContact
   tijdAlert
+  momentContactAnder
   contactMetZiek?
+  snelheidBepaald?
+  alertDoorApp?
+  bekendDatZiek?
 ]
 
 globals [a   ;;debug variabelen omdat je niet kan console.loggen
   b
+
   verschilVX1
   verschilVY1
   mensenDood
   procentDood
   procentBesmet
   procentImmuun
+  aantalBesmettingen
 ]
 
 to setup
   clear-all
   reset-ticks
-  set a  0
   set-default-shape turtles "circle"
   create-mensen aantalMensen[
     set color green
     setxy random-xcor random-ycor
     set ziek? false
     set immuun? false
+    set contactMetZiek? false
   ]
   ask n-of aantalZiekenBegin mensen[
     wordZiek
+    set momentContact 0
   ]
+  set aantalBesmettingen aantalZiekenBegin
 end
 
 
 to go
-
   bots
 
   ask mensen with[ ziek?][
@@ -64,11 +71,10 @@ end
 
 
 to bots
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;; VAN HET BOTSSYSTEEM AFBLIJVEN!!!!!!   ;;
-  ;; HET WERKT, MAAR GEEN IDEE WAAROM      ;;
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ask mensen with [vanRichtingVeranderd? = false][
+
+  ;;elastic collsion. Formules zijn van wikipedia
+
+  ask mensen with [vanRichtingVeranderd? = false][  ;;bij een botsing krijgen beide turtles een andere richting, terwijl elke turtle één keer gevraagd wordt. Zonder deze regel zouden de turtles twee keer botsen
     if count other mensen in-radius size > 0[  ;overlapping
       let heading1 heading
       let x1 xcor
@@ -81,10 +87,10 @@ ask mensen with [vanRichtingVeranderd? = false][
         set b verschilx
         let verschily ycor - y1
         let hoek atan verschily verschilx
-        let targetx x1 + sin hoek * size
-        let targety y1 + cos hoek * size
-        let ax targetx - xcor
-        let ay targety - ycor
+        let doelx x1 + sin hoek * size
+        let doely y1 + cos hoek * size
+        let ax doelx - xcor
+        let ay doely - ycor
         set verschilVX1 dx - ax
         set verschilVY1 dy - ay
         let verschilVX2 dx + ax
@@ -97,38 +103,55 @@ ask mensen with [vanRichtingVeranderd? = false][
   ]
 end
 
+
 to beweeg
-   ask mensen [
+  ask mensen[
     set vanRichtingVeranderd? false
-    (ifelse
-      contactMetZiek? = true and tijdAlert + incubatietijd > ticks and contactApp? = true [
-        fd 0.05
-        set color yellow
-      ]
-      tijdZiek < incubatietijd [
-        fd 0.2
-      ]
-
-      [
-
-      ]
-      )
+    set snelheidBepaald? false
   ]
+
+  ask mensen with [ ziek? and momentContact + incubatietijd < ticks][  ;;mensen die ziek zijn en de incubatitijd hebben gehad weten dat ze ziek zijn en bewegen niet meer
+    set snelheidBepaald? true
+    set label ""
+    set alertDoorApp? false
+    set bekendDatZiek? true
+  ]
+  if contactApp?[
+    ask mensen with [contactMetZiek? and momentContactAnder + incubatietijd < ticks and momentContact + incubatietijd > ticks][  ;;mensen die alert zijn door de app
+      fd 0.2
+      set snelheidBepaald? true
+      set alertDoorApp? true
+      set label "langzaam"
+    ]
+  ]
+
+    ask mensen with [snelheidBepaald? = false][
+      fd 0.2
+      set snelheidBepaald? true
+        set label ""
+        set alertDoorApp? false
+    ]
+
 end
 
 to contactProcedure
   if count other mensen in-radius size > 0[
       besmet
+      let doorgeefVariabele momentContact
       ask one-of other mensen in-radius size [
-        set tijdContact ticks
+        set momentContact ticks
         set contactMetZiek? true
+        set momentContactAnder doorgeefVariabele
       ]
     ]
 end
+
+
 to wordZiek
   set ziek? true
   set tijdZiek -1   ;;wordt voor de volgende tick op 0 gezet in go
   set color red
+  set aantalBesmettingen aantalBesmettingen + 1
 end
 
 to wordGezond
@@ -139,7 +162,11 @@ to wordGezond
 end
 
 to besmet
-  if random 100 < kansBesmetting[
+  let factor 1
+  if bekendDatZiek? = true or alertDoorApp? = true[
+    set factor 0.5
+  ]
+  if random 100 < kansBesmetting * factor[
     ask one-of other mensen in-radius size[
       if not ziek?[
         wordZiek
@@ -202,16 +229,16 @@ ticks
 SLIDER
 12
 54
-184
+192
 87
 aantalMensen
 aantalMensen
 0
-1000
-1000.0
+2000
+800.0
 1
 1
-NIL
+mensen
 HORIZONTAL
 
 BUTTON
@@ -274,7 +301,7 @@ aantalZiekenBegin
 aantalZiekenBegin
 0
 20
-10.0
+3.0
 1
 1
 NIL
@@ -289,7 +316,7 @@ kansBesmetting
 kansBesmetting
 0
 100
-20.0
+13.0
 1
 1
 %
@@ -304,7 +331,7 @@ ziekteDuur
 ziekteDuur
 0
 1000
-376.0
+291.0
 1
 1
 NIL
@@ -317,11 +344,11 @@ PLOT
 582
 plot 1
 ticks
-aantal
+procent
 0.0
 10.0
 0.0
-10.0
+100.0
 true
 true
 "" ""
@@ -339,7 +366,7 @@ kansGezondWorden
 kansGezondWorden
 0
 100
-50.0
+98.0
 1
 1
 NIL
@@ -354,7 +381,7 @@ incubatietijd
 incubatietijd
 0
 100
-100.0
+78.0
 1
 1
 NIL
@@ -370,6 +397,28 @@ contactApp?
 0
 1
 -1000
+
+MONITOR
+1108
+135
+1208
+180
+NIL
+procentImmuun
+17
+1
+11
+
+MONITOR
+1115
+227
+1238
+272
+NIL
+aantalBesmettingen
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
