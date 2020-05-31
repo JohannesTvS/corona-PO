@@ -4,19 +4,21 @@ mensen-own[
   vanRichtingVeranderd?
   ziek?
   immuun?
-  tijdZiek
-  momentContact
-  tijdAlert
-  momentContactAnder
   contactMetZiek?
   snelheidBepaald?
   alertDoorApp?
   bekendDatZiek?
+
+  tijdZiek
+  momentContact
+  tijdAlert
+  momentContactAnder
 ]
 
-globals [a   ;;debug variabelen omdat je niet kan console.loggen
+globals [
+  a
   b
-
+  factorVoorzichtigen
   verschilVX1
   verschilVY1
   mensenDood
@@ -29,29 +31,30 @@ globals [a   ;;debug variabelen omdat je niet kan console.loggen
 to setup
   clear-all
   reset-ticks
-  set-default-shape turtles "circle"
   create-mensen aantalMensen[
     set color green
     setxy random-xcor random-ycor
     set ziek? false
     set immuun? false
     set contactMetZiek? false
+    set shape "circle"
   ]
-  ask n-of aantalZiekenBegin mensen[
+  ask n-of aantalZiekenBegin mensen[ ;;zorgt ervoor dat de ingestelde mensen ziek zijn in het begin
     wordZiek
     set momentContact 0
   ]
   set aantalBesmettingen aantalZiekenBegin
+  set factorVoorzichtigen 0.5
 end
 
 
 to go
+
   bots
 
   ask mensen with[ ziek?][
     contactProcedure
     ziekteResultaat
-    alertAnderen
   ]
   ask mensen with [ziek?][   ;;nieuwe loop, zodat net besmette mensen allemaal op 0 beginnen
     set tijdZiek tijdZiek + 1
@@ -59,7 +62,7 @@ to go
 
   beweeg
 
-  if count mensen with [ziek?] = 0 [
+  if count mensen with [ziek?] = 0 [ ;;stopt de simulatie als erg gee nzieke mensen meer zijn
     stop
   ]
 
@@ -72,10 +75,10 @@ end
 
 to bots
 
-  ;;elastic collsion. Formules zijn van wikipedia
+  ;;2d elastic collsion waarbij snelheid en massa geen invloed heeft
 
   ask mensen with [vanRichtingVeranderd? = false][  ;;bij een botsing krijgen beide turtles een andere richting, terwijl elke turtle één keer gevraagd wordt. Zonder deze regel zouden de turtles twee keer botsen
-    if count other mensen in-radius size > 0[  ;overlapping
+    if count other mensen in-radius size > 0[  ;;overlapping
       let heading1 heading
       let x1 xcor
       set a x1
@@ -87,7 +90,7 @@ to bots
         set b verschilx
         let verschily ycor - y1
         let hoek atan verschily verschilx
-        let doelx x1 + sin hoek * size
+        let doelx x1 + sin hoek * size ;;Netlogo heeft een afwijkend hoeksysteem, waarbij 0 graden betekent dat de lijn recht omhoog is en bij 90 graden rechts. hierdoor zijn de sinus en cosinus omgedraaid
         let doely y1 + cos hoek * size
         let ax doelx - xcor
         let ay doely - ycor
@@ -104,15 +107,14 @@ to bots
 end
 
 
-to beweeg
+to beweeg ;;zorgt voor de snelheid van een agent.
   ask mensen[
     set vanRichtingVeranderd? false
     set snelheidBepaald? false
   ]
 
-  ask mensen with [ ziek? and momentContact + incubatietijd < ticks][  ;;mensen die ziek zijn en de incubatitijd hebben gehad weten dat ze ziek zijn en bewegen niet meer
+  ask mensen with [ ziek? and momentContact + incubatietijd < ticks][  ;;mensen die ziek zijn en de incubatietijd hebben gehad weten dat ze ziek zijn en bewegen niet meer
     set snelheidBepaald? true
-    set label ""
     set alertDoorApp? false
     set bekendDatZiek? true
   ]
@@ -121,20 +123,18 @@ to beweeg
       fd 0.2
       set snelheidBepaald? true
       set alertDoorApp? true
-      set label "langzaam"
     ]
   ]
 
-    ask mensen with [snelheidBepaald? = false][
+    ask mensen with [snelheidBepaald? = false][ ;;voor de agents die niet een speciale snelheidopdracht heeft gekregen
       fd 0.2
       set snelheidBepaald? true
-        set label ""
-        set alertDoorApp? false
+      set alertDoorApp? false
     ]
 
 end
 
-to contactProcedure
+to contactProcedure ;;zorgt voor het hanteren van contact met een geinfecteerde agent.
   if count other mensen in-radius size > 0[
       besmet
       let doorgeefVariabele momentContact
@@ -147,24 +147,24 @@ to contactProcedure
 end
 
 
-to wordZiek
+to wordZiek ;;de eigenschappen die een agent krijgt als hij ziek wordt
   set ziek? true
   set tijdZiek -1   ;;wordt voor de volgende tick op 0 gezet in go
   set color red
   set aantalBesmettingen aantalBesmettingen + 1
 end
 
-to wordGezond
+to wordGezond ;;de eigenschappen die een agent krijgt als hij immuun wordt
   set ziek? false
   set immuun? true
   set color blue
   set tijdZiek 0
 end
 
-to besmet
+to besmet ;;zorgt voor de kansberekening
   let factor 1
-  if bekendDatZiek? = true or alertDoorApp? = true[
-    set factor 0.5
+  if bekendDatZiek? = true or alertDoorApp? = true[ ;;agents die hieraan voldoen, zullen voorzichtiger zijn en minder snel besmet raken
+    set factor factorVoorzichtigen
   ]
   if random 100 < kansBesmetting * factor[
     ask one-of other mensen in-radius size[
@@ -175,25 +175,19 @@ to besmet
   ]
 end
 
-to alertAnderen
-  if contactApp? [
-    if tijdZiek >= incubatietijd [
-    ]
-  ]
-end
-
-to ziekteResultaat
+to ziekteResultaat ;;beslist of de agent dood gaat of geneest en immuniteit krijgt
    if tijdZiek >= ziekteDuur + random (ziekteduur / 10) [ ;;omdat het virus nooit in precies dezelfde tijd iemand dood, zit er wat speling in ziekteduur
       ifelse random 100 > kansGezondWorden[
          set mensenDood mensenDood + 1
          die
       ]
-        [ wordGezond
-        ]
+      [
+         wordGezond
       ]
+   ]
 end
 
-to statistiek
+to statistiek ;;rekent waardes om naar percentages
   set procentDood (mensenDood / aantalMensen) * 100
   set procentBesmet (count mensen with [ziek?] / aantalMensen) * 100
   set procentImmuun (count mensen with [immuun?]/ aantalMensen) * 100
@@ -348,7 +342,7 @@ procent
 0.0
 10.0
 0.0
-100.0
+0.0
 true
 true
 "" ""
@@ -366,7 +360,7 @@ kansGezondWorden
 kansGezondWorden
 0
 100
-98.0
+88.0
 1
 1
 NIL
@@ -394,15 +388,15 @@ SWITCH
 469
 contactApp?
 contactApp?
-0
+1
 1
 -1000
 
 MONITOR
-1108
-135
-1208
-180
+774
+387
+874
+432
 NIL
 procentImmuun
 17
@@ -420,9 +414,30 @@ aantalBesmettingen
 1
 11
 
+MONITOR
+776
+443
+861
+488
+NIL
+procentDood
+17
+1
+11
+
+MONITOR
+776
+500
+872
+545
+NIL
+procentBesmet
+17
+1
+11
+
 @#$#@#$#@
 ## WHAT IS IT?
-
 (a general understanding of what the model is trying to show or explain)
 
 ## HOW IT WORKS
